@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Preview: MetricCard</title>
+<link rel="stylesheet" href="../shared/main.css" />
+<script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+<script src="../shared/components.js"></script>
+</head>
+<body style="padding: 24px">
+<div id="app" v-cloak>
+  <h2 style="margin-bottom: 16px">MetricCard</h2>
+  <div class="grid grid-4" style="max-width: 900px">
+    <metric-card label="Total Students" value="128"></metric-card>
+    <metric-card label="At-Risk Students" value="34" accent="var(--risk-moderate)"></metric-card>
+    <metric-card label="High Risk" value="12" accent="var(--risk-high)" hint="+2 since last week"></metric-card>
+    <metric-card label="Critical Risk" value="3" accent="var(--risk-critical)"></metric-card>
+  </div>
+</div>
+<script>
+  const { createApp } = Vue;
+  createApp({ components: { MetricCard: Components.MetricCard } }).mount("#app");
+</script>
+</body>
+</html>

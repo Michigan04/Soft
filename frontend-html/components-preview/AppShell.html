@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Preview: AppShell (Sidebar + Header)</title>
+<link rel="stylesheet" href="../shared/main.css" />
+<link rel="stylesheet" href="../shared/layout.css" />
+<script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/auth.js"></script>
+<script src="../shared/nav.js"></script>
+<script src="../shared/components.js"></script>
+</head>
+<body>
+<div id="app" v-cloak>
+  <app-shell :user="user">
+    <div class="page">
+      <div class="page-title">Preview content area</div>
+      <p class="text-muted" style="margin-top: 8px">
+        This is the AppShell (Sidebar + Header) rendered with a fake user below - no login required.
+        The notification count will show 0 unless you are actually signed in, since it tries a real
+        <code>GET /notifications</code> call and silently falls back.
+      </p>
+      <div class="field" style="max-width: 260px; margin-top: 16px">
+        <label>Preview as role</label>
+        <select v-model="user.role" class="input">
+          <option value="admin">admin</option>
+          <option value="faculty">faculty</option>
+          <option value="ta">ta</option>
+          <option value="student">student</option>
+        </select>
+      </div>
+    </div>
+  </app-shell>
+</div>
+<script>
+  const { createApp, reactive } = Vue;
+  createApp({
+    components: { AppShell: Components.AppShell },
+    data() {
+      return {
+        user: reactive({ full_name: "Preview User", role: "admin", student_id: "preview-student-id" }),
+      };
+    },
+  }).mount("#app");
+</script>
+</body>
+</html>

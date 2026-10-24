@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Students - IITM Risk Platform</title>
+<link rel="stylesheet" href="../shared/main.css" />
+<link rel="stylesheet" href="../shared/layout.css" />
+<script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/auth.js"></script>
+<script src="../shared/nav.js"></script>
+<script src="../shared/components.js"></script>
+<style>
+  .filters-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .clickable { cursor: pointer; }
+</style>
+</head>
+<body>
+<div id="app" v-cloak>
+  <app-shell v-if="user" :user="user">
+    <div class="page">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Students</div>
+          <div class="page-subtitle">Search, filter, and review student risk status across the program.</div>
+        </div>
+      </div>
+
+      <div class="card card-pad" style="margin-bottom: 16px">
+        <div class="filters-row">
+          <input v-model="search" class="input" placeholder="Search name or ID..." style="max-width: 220px" @input="debouncedReload" />
+          <select v-model="academicLevel" class="input" style="max-width: 160px" @change="reload">
+            <option :value="null">All levels</option>
+            <option value="foundation">Foundation</option>
+            <option value="diploma">Diploma</option>
+            <option value="degree">Degree</option>
+          </select>
+          <select v-model="riskLevel" class="input" style="max-width: 160px" @change="reload">
+            <option :value="null">All risk levels</option>
+            <option value="low">Low</option>
+            <option value="moderate">Moderate</option>
+            <option value="high">High</option>
+            <option value="critical">Critical</option>
+          </select>
+          <select v-model="programStatus" class="input" style="max-width: 160px" @change="reload">
+            <option :value="null">All statuses</option>
+            <option value="active">Active</option>
+            <option value="on_hold">On hold</option>
+            <option value="completed">Completed</option>
+            <option value="discontinued">Discontinued</option>
+          </select>
+          <select v-model="sortBy" class="input" style="max-width: 180px" @change="reload">
+            <option value="risk_score">Sort: Risk score</option>
+            <option value="latest_assessment">Sort: Latest assessment</option>
+            <option value="pending_followups">Sort: Pending follow-ups</option>
+            <option value="full_name">Sort: Name</option>
+          </select>
+          <label class="flex items-center gap-8 text-sm">
+            <input type="checkbox" v-model="riskIncreasedOnly" @change="reload" />
+            Risk increased only
+          </label>
+        </div>
+      </div>
+
+      <div class="card">
+        <loading-state v-if="loading" :rows="6"></loading-state>
+        <error-state v-else-if="error" :message="error" @retry="reload"></error-state>
+        <empty-state v-else-if="items.length === 0" title="No students found" message="Try adjusting your filters."></empty-state>
+        <template v-else>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Level</th>
+                  <th>CGPA</th>
+                  <th>Risk</th>
+                  <th>Primary Reason</th>
+                  <th>Assigned Staff</th>
+                  <th>Overdue Follow-ups</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="s in items" :key="s.id" class="clickable" @click="goToProfile(s.id)">
+                  <td>
+                    <div style="font-weight: 600">{{ s.full_name }}</div>
+                    <div class="text-muted text-sm">{{ s.student_identifier }}</div>
+                  </td>
+                  <td style="text-transform: capitalize">{{ s.academic_level }}</td>
+                  <td>{{ s.cgpa ?? "—" }}</td>
+                  <td><risk-badge :level="s.latest_risk_level"></risk-badge></td>
+                  <td class="text-sm">{{ s.primary_risk_reason || "—" }}</td>
+                  <td class="text-sm">{{ s.assigned_staff_name || "Unassigned" }}</td>
+                  <td class="text-sm">{{ s.pending_followups }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="card-pad">
+            <pagination :page="page" :pages="pages" :total="total" @update:page="(p) => { page = p; reload(); }"></pagination>
+          </div>
+        </template>
+      </div>
+    </div>
+  </app-shell>
+</div>
+<script>
+  const { createApp } = Vue;
+  createApp({
+    components: {
+      AppShell: Components.AppShell,
+      RiskBadge: Components.RiskBadge,
+      LoadingState: Components.LoadingState,
+      ErrorState: Components.ErrorState,
+      EmptyState: Components.EmptyState,
+      Pagination: Components.Pagination,
+    },
+    data() {
+      return {
+        user: null,
+        search: "",
+        academicLevel: null,
+        riskLevel: null,
+        programStatus: null,
+        sortBy: "risk_score",
+        riskIncreasedOnly: false,
+        page: 1,
+        pages: 1,
+        total: 0,
+        items: [],
+        loading: true,
+        error: "",
+        debounceTimer: null,
+      };
+    },
+    methods: {
+      debouncedReload() {
+        clearTimeout(this.debounceTimer);
+        this.debounceTimer = setTimeout(() => {
+          this.page = 1;
+          this.reload();
+        }, 350);
+      },
+      async reload() {
+        this.loading = true;
+        this.error = "";
+        try {
+          const { data } = await Api.students.listStudents({
+            page: this.page,
+            page_size: 20,
+            search: this.search || undefined,
+            academic_level: this.academicLevel || undefined,
+            risk_level: this.riskLevel || undefined,
+            program_status: this.programStatus || undefined,
+            sort_by: this.sortBy,
+            sort_dir: "desc",
+            risk_increased_only: this.riskIncreasedOnly || undefined,
+          });
+          this.items = data.items;
+          this.pages = data.pages;
+          this.total = data.total;
+        } catch (e) {
+          this.error = Api.apiErrorMessage(e);
+        } finally {
+          this.loading = false;
+        }
+      },
+      goToProfile(id) {
+        location.href = `StudentProfile.html?id=${id}`;
+      },
+    },
+    async mounted() {
+      this.user = await Auth.requireUser(["admin", "faculty", "ta"]);
+      if (!this.user) return;
+      await this.reload();
+    },
+  }).mount("#app");
+</script>
+</body>
+</html>

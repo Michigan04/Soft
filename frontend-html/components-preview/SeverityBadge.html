@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Preview: SeverityBadge</title>
+<link rel="stylesheet" href="../shared/main.css" />
+<script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+<script src="../shared/components.js"></script>
+</head>
+<body style="padding: 24px">
+<div id="app" v-cloak>
+  <h2 style="margin-bottom: 16px">SeverityBadge</h2>
+  <div class="flex gap-12 items-center">
+    <severity-badge severity="info"></severity-badge>
+    <severity-badge severity="warning"></severity-badge>
+    <severity-badge severity="critical"></severity-badge>
+  </div>
+</div>
+<script>
+  const { createApp } = Vue;
+  createApp({ components: { SeverityBadge: Components.SeverityBadge } }).mount("#app");
+</script>
+</body>
+</html>

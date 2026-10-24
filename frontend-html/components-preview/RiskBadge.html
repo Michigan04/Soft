@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Preview: RiskBadge</title>
+<link rel="stylesheet" href="../shared/main.css" />
+<script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+<script src="../shared/components.js"></script>
+</head>
+<body style="padding: 24px">
+<div id="app" v-cloak>
+  <h2 style="margin-bottom: 16px">RiskBadge</h2>
+  <div class="flex gap-12 items-center">
+    <risk-badge level="low"></risk-badge>
+    <risk-badge level="moderate"></risk-badge>
+    <risk-badge level="high"></risk-badge>
+    <risk-badge level="critical"></risk-badge>
+    <risk-badge :level="null"></risk-badge>
+  </div>
+</div>
+<script>
+  const { createApp } = Vue;
+  createApp({ components: { RiskBadge: Components.RiskBadge } }).mount("#app");
+</script>
+</body>
+</html>

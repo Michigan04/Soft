@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Preview: LoadingState</title>
+<link rel="stylesheet" href="../shared/main.css" />
+<script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+<script src="../shared/components.js"></script>
+</head>
+<body style="padding: 24px">
+<div id="app" v-cloak>
+  <h2 style="margin-bottom: 16px">LoadingState</h2>
+  <div class="card card-pad" style="max-width: 500px">
+    <loading-state :rows="6"></loading-state>
+  </div>
+</div>
+<script>
+  const { createApp } = Vue;
+  createApp({ components: { LoadingState: Components.LoadingState } }).mount("#app");
+</script>
+</body>
+</html>

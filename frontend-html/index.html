@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>IITM Risk Platform - plain HTML build</title>
+<link rel="stylesheet" href="shared/main.css" />
+<style>
+  .gallery { padding: 32px; max-width: 1000px; margin: 0 auto; }
+  .gallery-section { margin-bottom: 28px; }
+  .gallery-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  .gallery-link { display: block; padding: 12px 14px; }
+</style>
+</head>
+<body>
+  <div class="gallery">
+    <div class="page-header">
+      <div>
+        <div class="page-title">IITM Risk Platform &mdash; plain HTML build</div>
+        <div class="page-subtitle">
+          No-build-step port of the Vue SFC frontend (see ../frontend/, untouched). Each link below is a
+          standalone .html page you can open on its own. See README.md for how to run the backend + a
+          static server for this folder.
+        </div>
+      </div>
+    </div>
+
+    <div class="gallery-section">
+      <h3 style="margin-bottom: 10px">Start here</h3>
+      <div class="gallery-grid">
+        <a class="card gallery-link" href="pages/Login.html">Login</a>
+        <a class="card gallery-link" href="pages/DashboardOverview.html">Dashboard</a>
+      </div>
+    </div>
+
+    <div class="gallery-section">
+      <h3 style="margin-bottom: 10px">Pages (full app, live API, needs sign-in)</h3>
+      <div class="gallery-grid">
+        <a class="card gallery-link" href="pages/StudentDirectory.html">Students</a>
+        <a class="card gallery-link" href="pages/StudentProfile.html">Student Profile</a>
+        <a class="card gallery-link" href="pages/RegistrationChecker.html">Registration Checker</a>
+        <a class="card gallery-link" href="pages/ProjectCgpaTracker.html">Projects &amp; CGPA</a>
+        <a class="card gallery-link" href="pages/Interventions.html">Interventions</a>
+        <a class="card gallery-link" href="pages/StaffAssignments.html">Staff Assignments</a>
+        <a class="card gallery-link" href="pages/Notifications.html">Notifications</a>
+        <a class="card gallery-link" href="pages/Reports.html">Reports</a>
+        <a class="card gallery-link" href="pages/RulesManagement.html">Rules &amp; Policies</a>
+        <a class="card gallery-link" href="pages/DataImport.html">Data Import</a>
+        <a class="card gallery-link" href="pages/AuditLogs.html">Audit Logs</a>
+        <a class="card gallery-link" href="pages/Unauthorized.html">Unauthorized (403)</a>
+        <a class="card gallery-link" href="pages/NotFound.html">Not Found (404)</a>
+      </div>
+    </div>
+
+    <div class="gallery-section">
+      <h3 style="margin-bottom: 10px">Component previews (isolated, sample data)</h3>
+      <div class="gallery-grid">
+        <a class="card gallery-link" href="components-preview/AppShell.html">AppShell (Sidebar + Header)</a>
+        <a class="card gallery-link" href="components-preview/MetricCard.html">MetricCard</a>
+        <a class="card gallery-link" href="components-preview/RiskBadge.html">RiskBadge</a>
+        <a class="card gallery-link" href="components-preview/SeverityBadge.html">SeverityBadge</a>
+        <a class="card gallery-link" href="components-preview/LoadingState.html">LoadingState</a>
+        <a class="card gallery-link" href="components-preview/ErrorState.html">ErrorState</a>
+        <a class="card gallery-link" href="components-preview/EmptyState.html">EmptyState</a>
+        <a class="card gallery-link" href="components-preview/Pagination.html">Pagination</a>
+        <a class="card gallery-link" href="components-preview/ConfirmDialog.html">ConfirmDialog</a>
+        <a class="card gallery-link" href="components-preview/InterventionForm.html">InterventionForm (live API)</a>
+        <a class="card gallery-link" href="components-preview/charts/ProgressionChart.html">ProgressionChart</a>
+        <a class="card gallery-link" href="components-preview/charts/RiskDistributionChart.html">RiskDistributionChart</a>
+        <a class="card gallery-link" href="components-preview/charts/RiskTrendChart.html">RiskTrendChart</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

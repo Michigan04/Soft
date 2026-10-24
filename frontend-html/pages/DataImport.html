@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Data Import - IITM Risk Platform</title>
+<link rel="stylesheet" href="../shared/main.css" />
+<link rel="stylesheet" href="../shared/layout.css" />
+<script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/auth.js"></script>
+<script src="../shared/nav.js"></script>
+<script src="../shared/components.js"></script>
+</head>
+<body>
+<div id="app" v-cloak>
+  <app-shell v-if="user" :user="user">
+    <div class="page">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Academic Data Import</div>
+          <div class="page-subtitle">Validate and commit CSV uploads for students, results, registrations, and projects.</div>
+        </div>
+      </div>
+
+      <div class="card card-pad" style="margin-bottom: 20px">
+        <div class="field">
+          <label>Import type</label>
+          <select v-model="importType" class="input" style="max-width: 260px" @change="reset">
+            <option value="students">Students</option>
+            <option value="course_results">Course Results</option>
+            <option value="registrations">Registrations</option>
+            <option value="projects">Projects</option>
+          </select>
+        </div>
+        <button class="btn btn-secondary btn-sm" style="margin-bottom: 16px" @click="downloadTemplate">
+          Download CSV Template
+        </button>
+
+        <div class="field">
+          <label>CSV file</label>
+          <input ref="fileInput" type="file" accept=".csv" class="input" @change="onFileChange" />
+        </div>
+        <button class="btn btn-primary" :disabled="!file || validating" @click="runValidate">
+          {{ validating ? "Validating..." : "Validate File" }}
+        </button>
+        <p v-if="error" class="field-error" style="margin-top: 10px">{{ error }}</p>
+      </div>
+
+      <div v-if="validation" class="card card-pad" style="margin-bottom: 20px">
+        <h3 style="margin-bottom: 10px">Validation Report</h3>
+        <div class="grid grid-3" style="margin-bottom: 16px">
+          <metric-card label="Total Rows" :value="validation.total_rows"></metric-card>
+          <metric-card label="Valid Rows" :value="validation.valid_rows" accent="var(--risk-low)"></metric-card>
+          <metric-card label="Invalid Rows" :value="validation.invalid_rows" accent="var(--risk-critical)"></metric-card>
+        </div>
+
+        <div v-if="validation.row_errors.length" style="margin-bottom: 16px">
+          <h4 style="margin-bottom: 8px">Row Errors</h4>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Row</th><th>Errors</th></tr></thead>
+              <tbody>
+                <tr v-for="re in validation.row_errors" :key="re.row_number">
+                  <td>{{ re.row_number }}</td>
+                  <td class="text-sm field-error">{{ re.errors.join("; ") }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <button class="btn btn-primary" :disabled="validation.valid_rows === 0 || committing" @click="confirmCommit = true">
+          {{ committing ? "Committing..." : `Commit ${validation.valid_rows} Valid Row(s)` }}
+        </button>
+      </div>
+
+      <div v-if="importResult" class="card card-pad" style="margin-bottom: 20px">
+        <h3 style="margin-bottom: 10px">Import Summary</h3>
+        <p class="text-sm">
+          Status: <strong>{{ importResult.status }}</strong> &middot;
+          Successful: {{ importResult.successful_rows }} &middot; Failed: {{ importResult.failed_rows }}
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="card-pad" style="padding-bottom: 0"><h3>Import History</h3></div>
+        <loading-state v-if="loadingHistory" :rows="4"></loading-state>
+        <div v-else class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>File</th><th>Type</th><th>Status</th><th>Total</th><th>Success</th><th>Failed</th><th>Date</th></tr></thead>
+            <tbody>
+              <tr v-for="imp in history" :key="imp.id">
+                <td>{{ imp.filename }}</td>
+                <td style="text-transform: capitalize">{{ imp.import_type.replace("_", " ") }}</td>
+                <td style="text-transform: capitalize">{{ imp.status }}</td>
+                <td>{{ imp.total_rows }}</td>
+                <td>{{ imp.successful_rows }}</td>
+                <td>{{ imp.failed_rows }}</td>
+                <td>{{ new Date(imp.created_at).toLocaleDateString() }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <confirm-dialog
+        v-model="confirmCommit"
+        title="Commit this import?"
+        message="This will permanently write the validated rows to the database."
+        confirm-label="Commit"
+        @confirm="runCommit"
+        @cancel="confirmCommit = false"
+      ></confirm-dialog>
+    </div>
+  </app-shell>
+</div>
+<script>
+  const { createApp } = Vue;
+
+  const TEMPLATES = {
+    students: "student_identifier,email,full_name,academic_level,admission_date,current_term\nEX25F000001,example@demo.iitm.ac.in,Example Student,foundation,2026-01-10,Sep 2026 Term\n",
+    course_results: "student_identifier,course_code,academic_term_name,result_status,credits,grade,grade_points\nEX25F000001,MATH1001,Sep 2026 Term,pass,4,A,8\n",
+    registrations: "student_identifier,course_code,academic_term_name,status\nEX25F000001,MATH1001,Sep 2026 Term,approved\n",
+    projects: "student_identifier,title,status,description,start_date,due_date,completion_date,grade\nEX25F000001,Capstone Project,in_progress,,2026-09-01,2027-01-10,,\n",
+  };
+
+  createApp({
+    components: {
+      AppShell: Components.AppShell,
+      MetricCard: Components.MetricCard,
+      LoadingState: Components.LoadingState,
+      ConfirmDialog: Components.ConfirmDialog,
+    },
+    data() {
+      return {
+        user: null,
+        importType: "students",
+        file: null,
+        validating: false,
+        committing: false,
+        error: "",
+        validation: null,
+        importResult: null,
+        confirmCommit: false,
+        history: [],
+        loadingHistory: true,
+      };
+    },
+    methods: {
+      downloadTemplate() {
+        const blob = new Blob([TEMPLATES[this.importType]], { type: "text/csv" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${this.importType}_template.csv`;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+      onFileChange(e) {
+        this.file = e.target.files[0] || null;
+      },
+      reset() {
+        this.file = null;
+        this.validation = null;
+        this.importResult = null;
+        this.error = "";
+        if (this.$refs.fileInput) this.$refs.fileInput.value = "";
+      },
+      async runValidate() {
+        this.validating = true;
+        this.error = "";
+        this.validation = null;
+        this.importResult = null;
+        try {
+          const { data } = await Api.imports.validateImport(this.importType, this.file);
+          this.validation = data;
+        } catch (e) {
+          this.error = Api.apiErrorMessage(e);
+        } finally {
+          this.validating = false;
+        }
+      },
+      async runCommit() {
+        this.confirmCommit = false;
+        this.committing = true;
+        try {
+          const { data } = await Api.imports.commitImport(this.validation.validation_token);
+          this.importResult = data;
+          this.validation = null;
+          await this.loadHistory();
+        } catch (e) {
+          this.error = Api.apiErrorMessage(e);
+        } finally {
+          this.committing = false;
+        }
+      },
+      async loadHistory() {
+        this.loadingHistory = true;
+        const { data } = await Api.imports.listImports();
+        this.history = data;
+        this.loadingHistory = false;
+      },
+    },
+    async mounted() {
+      this.user = await Auth.requireUser(["admin"]);
+      if (!this.user) return;
+      await this.loadHistory();
+    },
+  }).mount("#app");
+</script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Preview: ConfirmDialog</title>
+<link rel="stylesheet" href="../shared/main.css" />
+<script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+<script src="../shared/components.js"></script>
+</head>
+<body style="padding: 24px">
+<div id="app" v-cloak>
+  <h2 style="margin-bottom: 16px">ConfirmDialog</h2>
+  <div class="flex gap-8">
+    <button class="btn btn-secondary" @click="open1 = true">Open (default)</button>
+    <button class="btn btn-danger" @click="open2 = true">Open (danger)</button>
+  </div>
+  <p class="text-sm text-muted" style="margin-top: 10px">Last action: {{ lastAction }}</p>
+
+  <confirm-dialog
+    v-model="open1"
+    title="Apply this change?"
+    message="This will immediately affect how risk is calculated program-wide."
+    confirm-label="Apply"
+    @confirm="lastAction = 'confirmed #1'; open1 = false"
+    @cancel="lastAction = 'cancelled #1'; open1 = false"
+  ></confirm-dialog>
+
+  <confirm-dialog
+    v-model="open2"
+    title="Delete this rule?"
+    message="This cannot be undone."
+    confirm-label="Delete"
+    :danger="true"
+    @confirm="lastAction = 'confirmed #2 (danger)'; open2 = false"
+    @cancel="lastAction = 'cancelled #2'; open2 = false"
+  ></confirm-dialog>
+</div>
+<script>
+  const { createApp } = Vue;
+  createApp({
+    components: { ConfirmDialog: Components.ConfirmDialog },
+    data() {
+      return { open1: false, open2: false, lastAction: "(none yet)" };
+    },
+  }).mount("#app");
+</script>
+</body>
+</html>

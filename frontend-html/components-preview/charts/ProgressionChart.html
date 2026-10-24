@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Preview: ProgressionChart</title>
+<link rel="stylesheet" href="../../shared/main.css" />
+<script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.js"></script>
+<script src="../../shared/charts.js"></script>
+</head>
+<body style="padding: 24px">
+<div id="app" v-cloak>
+  <h2 style="margin-bottom: 16px">ProgressionChart</h2>
+  <div class="card card-pad" style="max-width: 640px; height: 320px">
+    <progression-chart :items="items"></progression-chart>
+  </div>
+</div>
+<script>
+  const { createApp } = Vue;
+  createApp({
+    components: { ProgressionChart: Charts.ProgressionChart },
+    data() {
+      return {
+        items: [
+          { period: "foundation", average_cgpa: 7.8, at_risk_count: 6, total_students: 40 },
+          { period: "diploma", average_cgpa: 8.1, at_risk_count: 3, total_students: 28 },
+          { period: "degree", average_cgpa: 8.4, at_risk_count: 2, total_students: 20 },
+        ],
+      };
+    },
+  }).mount("#app");
+</script>
+</body>
+</html>

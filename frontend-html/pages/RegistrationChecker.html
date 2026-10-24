@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Registration Checker - IITM Risk Platform</title>
+<link rel="stylesheet" href="../shared/main.css" />
+<link rel="stylesheet" href="../shared/layout.css" />
+<script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/auth.js"></script>
+<script src="../shared/nav.js"></script>
+<script src="../shared/components.js"></script>
+<style>
+  .dropdown-list { border: 1px solid var(--color-border); border-radius: var(--radius-sm); margin-top: 4px; max-height: 160px; overflow-y: auto; }
+  .dropdown-item { padding: 8px 10px; cursor: pointer; font-size: 13px; }
+  .dropdown-item:hover { background: #faf5f6; }
+  .course-grid { display: flex; flex-direction: column; gap: 8px; }
+  .course-chip { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 8px 10px; border: 1px solid var(--color-border); border-radius: var(--radius-sm); }
+  .result-list { display: flex; flex-direction: column; gap: 12px; }
+  .result-row { display: flex; gap: 10px; align-items: flex-start; }
+</style>
+</head>
+<body>
+<div id="app" v-cloak>
+  <app-shell v-if="user" :user="user">
+    <div class="page">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Registration Checker</div>
+          <div class="page-subtitle">
+            Validate course selections against prerequisites and academic rules before registering.
+          </div>
+        </div>
+      </div>
+
+      <div class="card card-pad" style="margin-bottom: 16px">
+        <div v-if="!isStudent" class="field">
+          <label>Student</label>
+          <input v-model="studentSearch" class="input" placeholder="Search by name or ID..." @input="searchStudents" />
+          <div v-if="studentOptions.length" class="dropdown-list">
+            <div v-for="s in studentOptions" :key="s.id" class="dropdown-item" @click="selectStudent(s)">
+              {{ s.full_name }} ({{ s.student_identifier }})
+            </div>
+          </div>
+        </div>
+        <p v-if="selectedStudent" class="text-sm" style="margin-bottom: 10px">
+          Registering for: <strong>{{ selectedStudent.full_name }}</strong>
+          ({{ selectedStudent.student_identifier }}, {{ selectedStudent.academic_level }})
+        </p>
+
+        <div class="field">
+          <label>Academic Term</label>
+          <select v-model="termId" class="input">
+            <option v-for="t in terms" :key="t.id" :value="t.id">{{ t.name }}</option>
+          </select>
+        </div>
+
+        <div v-if="courses.length" class="field">
+          <label>Courses</label>
+          <div class="course-grid">
+            <label v-for="c in courses" :key="c.id" class="course-chip">
+              <input type="checkbox" :value="c.id" v-model="selectedCourseIds" />
+              {{ c.course_code }} &mdash; {{ c.course_name }}
+            </label>
+          </div>
+        </div>
+
+        <div class="flex gap-8">
+          <button class="btn btn-secondary" :disabled="!canCheck" @click="validate">
+            {{ validating ? "Validating..." : "Validate Selection" }}
+          </button>
+          <button class="btn btn-primary" :disabled="!canSubmit" @click="submit">
+            {{ submitting ? "Submitting..." : "Submit Registration" }}
+          </button>
+        </div>
+        <p v-if="error" class="field-error" style="margin-top: 10px">{{ error }}</p>
+      </div>
+
+      <div v-if="validationResult" class="card card-pad">
+        <h3 style="margin-bottom: 12px">
+          Validation Result:
+          <span :style="{ color: validationResult.overall_valid ? 'var(--risk-low)' : 'var(--risk-critical)' }">
+            {{ validationResult.overall_valid ? "All selections valid" : "Some selections are invalid" }}
+          </span>
+        </h3>
+        <div class="result-list">
+          <div v-for="r in validationResult.results" :key="r.course_id" class="result-row">
+            <span class="badge" :style="r.is_valid ? validStyle : invalidStyle">
+              {{ r.is_valid ? "Valid" : "Invalid" }}
+            </span>
+            <div>
+              <div style="font-weight: 600; font-size: 13px">{{ r.course_code }} &mdash; {{ r.course_name }}</div>
+              <ul v-if="r.errors.length" class="text-sm field-error" style="margin: 4px 0 0; padding-left: 18px">
+                <li v-for="(e, idx) in r.errors" :key="idx">{{ e }}</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+        <p class="text-muted text-sm" style="margin-top: 12px">
+          Invalid selections will be recorded as rejected and cannot be submitted as approved registrations.
+        </p>
+      </div>
+
+      <div v-if="submittedRegistrations.length" class="card card-pad" style="margin-top: 16px">
+        <h3 style="margin-bottom: 12px">Submitted Registrations</h3>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead><tr><th>Course</th><th>Status</th><th>Validation</th></tr></thead>
+            <tbody>
+              <tr v-for="r in submittedRegistrations" :key="r.id">
+                <td>{{ r.course_code }} &mdash; {{ r.course_name }}</td>
+                <td style="text-transform: capitalize">{{ r.status }}</td>
+                <td style="text-transform: capitalize">{{ r.validation_status.replace("_", " ") }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </app-shell>
+</div>
+<script>
+  const { createApp } = Vue;
+
+  const validStyle = { color: "#2f9e44", background: "#2f9e4418" };
+  const invalidStyle = { color: "#c92a2a", background: "#c92a2a18" };
+
+  createApp({
+    components: { AppShell: Components.AppShell },
+    data() {
+      return {
+        user: null,
+        isStudent: false,
+        terms: [],
+        termId: null,
+        courses: [],
+        selectedCourseIds: [],
+        studentSearch: "",
+        studentOptions: [],
+        selectedStudent: null,
+        validationResult: null,
+        submittedRegistrations: [],
+        validating: false,
+        submitting: false,
+        error: "",
+        searchTimer: null,
+        validStyle,
+        invalidStyle,
+      };
+    },
+    computed: {
+      effectiveStudentId() {
+        return this.isStudent ? this.user?.student_id : this.selectedStudent?.id;
+      },
+      canCheck() {
+        return this.effectiveStudentId && this.termId && this.selectedCourseIds.length > 0;
+      },
+      canSubmit() {
+        return this.canCheck && this.validationResult;
+      },
+    },
+    methods: {
+      searchStudents() {
+        clearTimeout(this.searchTimer);
+        if (!this.studentSearch) {
+          this.studentOptions = [];
+          return;
+        }
+        this.searchTimer = setTimeout(async () => {
+          const { data } = await Api.students.listStudents({ search: this.studentSearch, page_size: 8 });
+          this.studentOptions = data.items;
+        }, 300);
+      },
+      selectStudent(s) {
+        this.selectedStudent = s;
+        this.studentOptions = [];
+        this.studentSearch = `${s.full_name} (${s.student_identifier})`;
+        this.loadCoursesForLevel(s.academic_level);
+      },
+      async loadCoursesForLevel(level) {
+        const { data } = await Api.academic.listCourses({ academic_level: level });
+        this.courses = data;
+        this.selectedCourseIds = [];
+        this.validationResult = null;
+      },
+      async validate() {
+        this.validating = true;
+        this.error = "";
+        this.validationResult = null;
+        try {
+          const { data } = await Api.registrations.validateRegistration({
+            student_id: this.effectiveStudentId,
+            academic_term_id: this.termId,
+            course_ids: this.selectedCourseIds,
+          });
+          this.validationResult = data;
+        } catch (e) {
+          this.error = Api.apiErrorMessage(e);
+        } finally {
+          this.validating = false;
+        }
+      },
+      async submit() {
+        this.submitting = true;
+        this.error = "";
+        try {
+          const { data } = await Api.registrations.submitRegistration({
+            student_id: this.effectiveStudentId,
+            academic_term_id: this.termId,
+            course_ids: this.selectedCourseIds,
+          });
+          this.submittedRegistrations = data;
+          this.validationResult = null;
+          this.selectedCourseIds = [];
+        } catch (e) {
+          this.error = Api.apiErrorMessage(e);
+        } finally {
+          this.submitting = false;
+        }
+      },
+    },
+    async mounted() {
+      this.user = await Auth.requireUser(["admin", "faculty", "ta", "student"]);
+      if (!this.user) return;
+      this.isStudent = Auth.isStudent(this.user);
+
+      const { data } = await Api.academic.listTerms();
+      this.terms = data;
+      this.termId = data.find((t) => t.is_active)?.id || data[0]?.id || null;
+
+      if (this.isStudent) {
+        const { data: me } = await Api.students.getStudent(this.user.student_id);
+        this.selectedStudent = me;
+        this.loadCoursesForLevel(me.academic_level);
+      }
+    },
+  }).mount("#app");
+</script>
+</body>
+</html>
