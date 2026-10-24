@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Unauthorized - IITM Risk Platform</title>
+<link rel="stylesheet" href="../shared/main.css" />
+<link rel="stylesheet" href="../shared/layout.css" />
+<script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/auth.js"></script>
+<script src="../shared/nav.js"></script>
+<script src="../shared/components.js"></script>
+</head>
+<body>
+<div id="app" v-cloak>
+  <app-shell v-if="user" :user="user">
+    <div class="state-box">
+      <h3>403 &mdash; Not authorized</h3>
+      <p>Your account role does not have access to this page.</p>
+      <a class="btn btn-primary" href="DashboardOverview.html">Back to dashboard</a>
+    </div>
+  </app-shell>
+</div>
+<script>
+  const { createApp } = Vue;
+  createApp({
+    components: { AppShell: Components.AppShell },
+    data() {
+      return { user: null };
+    },
+    async mounted() {
+      this.user = await Auth.requireUser(null);
+    },
+  }).mount("#app");
+</script>
+</body>
+</html>

@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Sign in - IITM Risk Platform</title>
+<link rel="stylesheet" href="../shared/main.css" />
+<script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/auth.js"></script>
+<style>
+  .login-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-sidebar-bg);
+    padding: 24px;
+  }
+  .login-card {
+    width: 100%;
+    max-width: 420px;
+    padding: 32px;
+  }
+  .login-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .login-brand .crest {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: var(--color-primary);
+    color: #fff;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .login-brand .brand-title {
+    font-weight: 700;
+    font-size: 15px;
+  }
+  .login-brand .brand-sub {
+    font-size: 12px;
+  }
+  .demo-accounts {
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px solid var(--color-border);
+  }
+  .demo-accounts ul {
+    margin: 0;
+    padding-left: 18px;
+  }
+  .demo-accounts li {
+    margin-bottom: 3px;
+  }
+</style>
+</head>
+<body>
+<div id="app" v-cloak>
+  <div class="login-page">
+    <div class="login-card card">
+      <div class="login-brand">
+        <div class="crest">IM</div>
+        <div>
+          <div class="brand-title">IIT Madras</div>
+          <div class="brand-sub text-muted">BS Degree Program &mdash; Risk &amp; Intervention Platform</div>
+        </div>
+      </div>
+
+      <h1 class="page-title" style="margin: 22px 0 4px">Sign in</h1>
+      <p class="text-muted text-sm" style="margin-bottom: 20px">
+        Use your demo account credentials to continue.
+      </p>
+
+      <form @submit.prevent="onSubmit">
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" v-model="email" type="email" class="input" required autocomplete="username" />
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" v-model="password" type="password" class="input" required autocomplete="current-password" />
+        </div>
+
+        <p v-if="error" class="field-error" style="margin-bottom: 14px">{{ error }}</p>
+
+        <button class="btn btn-primary" type="submit" style="width: 100%" :disabled="loading">
+          {{ loading ? "Signing in..." : "Sign in" }}
+        </button>
+      </form>
+
+      <div class="demo-accounts">
+        <p class="text-sm text-muted" style="margin-bottom: 8px">Demo accounts (password: <code>Demo@12345</code>):</p>
+        <ul class="text-sm text-muted">
+          <li>admin@demo.iitm.ac.in &mdash; Administrator</li>
+          <li>faculty1@demo.iitm.ac.in &mdash; Faculty</li>
+          <li>ta1@demo.iitm.ac.in &mdash; Teaching Assistant</li>
+          <li>23f1000003@demo.iitm.ac.in &mdash; Student (high risk)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  const { createApp } = Vue;
+
+  function getRedirectTarget() {
+    const params = new URLSearchParams(location.search);
+    return params.get("redirect") || "DashboardOverview.html";
+  }
+
+  createApp({
+    data() {
+      return { email: "", password: "", error: "", loading: false };
+    },
+    methods: {
+      async onSubmit() {
+        this.error = "";
+        this.loading = true;
+        try {
+          await Auth.login(this.email, this.password);
+          location.href = getRedirectTarget();
+        } catch (e) {
+          this.error = Api.apiErrorMessage(e, "Could not sign in. Check your credentials.");
+        } finally {
+          this.loading = false;
+        }
+      },
+    },
+    mounted() {
+      if (Auth.isAuthenticated()) {
+        location.href = "DashboardOverview.html";
+      }
+    },
+  }).mount("#app");
+</script>
+</body>
+</html>

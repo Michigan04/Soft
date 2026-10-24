@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Dashboard - IITM Risk Platform</title>
+<link rel="stylesheet" href="../shared/main.css" />
+<link rel="stylesheet" href="../shared/layout.css" />
+<script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/auth.js"></script>
+<script src="../shared/nav.js"></script>
+<script src="../shared/components.js"></script>
+<script src="../shared/charts.js"></script>
+<style>
+  .clickable { cursor: pointer; }
+  .alert-list { display: flex; flex-direction: column; gap: 14px; }
+  .alert-item { display: flex; gap: 10px; align-items: flex-start; }
+</style>
+</head>
+<body>
+<div id="app" v-cloak>
+  <app-shell v-if="user" :user="user">
+    <div class="page">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Program Dashboard</div>
+          <div class="page-subtitle">Program-wide risk and progression overview, updated live from student records.</div>
+        </div>
+        <div class="flex gap-8">
+          <select v-model="academicLevel" class="input" style="width: auto">
+            <option :value="null">All levels</option>
+            <option value="foundation">Foundation</option>
+            <option value="diploma">Diploma</option>
+            <option value="degree">Degree</option>
+          </select>
+        </div>
+      </div>
+
+      <loading-state v-if="loading" :rows="6"></loading-state>
+      <error-state v-else-if="error" :message="error" @retry="load"></error-state>
+
+      <template v-else>
+        <div class="grid grid-4" style="margin-bottom: 20px">
+          <metric-card label="Total Students" :value="summary.total_students"></metric-card>
+          <metric-card label="At-Risk Students" :value="summary.at_risk_students" accent="var(--risk-moderate)"></metric-card>
+          <metric-card label="High Risk" :value="summary.high_risk_students" accent="var(--risk-high)"></metric-card>
+          <metric-card label="Critical Risk" :value="summary.critical_risk_students" accent="var(--risk-critical)"></metric-card>
+        </div>
+        <div class="grid grid-2" style="margin-bottom: 20px">
+          <metric-card label="Pending Interventions" :value="summary.pending_interventions"></metric-card>
+          <metric-card label="Overdue Follow-ups" :value="summary.overdue_followups" accent="var(--risk-critical)"></metric-card>
+        </div>
+
+        <div class="grid grid-2" style="margin-bottom: 20px; align-items: stretch">
+          <div class="card card-pad">
+            <h3 style="margin-bottom: 14px">Risk Distribution</h3>
+            <div style="height: 260px">
+              <risk-distribution-chart v-if="riskDistribution.length" :items="riskDistribution"></risk-distribution-chart>
+              <empty-state v-else title="No assessments yet" message="Run risk assessments to see distribution."></empty-state>
+            </div>
+          </div>
+          <div class="card card-pad">
+            <h3 style="margin-bottom: 14px">Academic Progression by Level</h3>
+            <div style="height: 260px">
+              <progression-chart v-if="progression.length" :items="progression"></progression-chart>
+              <empty-state v-else title="No data" message="No students found for this filter."></empty-state>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-2" style="align-items: start">
+          <div class="card card-pad">
+            <h3 style="margin-bottom: 14px">Students Requiring Attention</h3>
+            <div v-if="attentionStudents.length" class="table-wrap">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Student</th>
+                    <th>Risk</th>
+                    <th>Primary Reason</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="s in attentionStudents" :key="s.id" class="clickable" @click="goToProfile(s.id)">
+                    <td>
+                      <div style="font-weight: 600">{{ s.full_name }}</div>
+                      <div class="text-muted text-sm">{{ s.student_identifier }}</div>
+                    </td>
+                    <td><risk-badge :level="s.latest_risk_level"></risk-badge></td>
+                    <td class="text-sm">{{ s.primary_risk_reason || "—" }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <empty-state v-else title="All clear" message="No students currently flagged as at-risk."></empty-state>
+          </div>
+
+          <div class="card card-pad">
+            <h3 style="margin-bottom: 14px">Recent Alerts</h3>
+            <div v-if="recentAlerts.length" class="alert-list">
+              <div v-for="n in recentAlerts" :key="n.id" class="alert-item">
+                <severity-badge :severity="n.severity"></severity-badge>
+                <div class="flex-col" style="flex: 1">
+                  <div style="font-weight: 600; font-size: 13px">{{ n.title }}</div>
+                  <div class="text-muted text-sm">{{ n.message }}</div>
+                  <div class="text-muted text-sm">{{ new Date(n.created_at).toLocaleString() }}</div>
+                </div>
+              </div>
+            </div>
+            <empty-state v-else title="No recent alerts" message="You're all caught up."></empty-state>
+          </div>
+        </div>
+      </template>
+    </div>
+  </app-shell>
+</div>
+<script>
+  const { createApp } = Vue;
+  createApp({
+    components: {
+      AppShell: Components.AppShell,
+      MetricCard: Components.MetricCard,
+      RiskBadge: Components.RiskBadge,
+      SeverityBadge: Components.SeverityBadge,
+      LoadingState: Components.LoadingState,
+      ErrorState: Components.ErrorState,
+      EmptyState: Components.EmptyState,
+      RiskDistributionChart: Charts.RiskDistributionChart,
+      ProgressionChart: Charts.ProgressionChart,
+    },
+    data() {
+      return {
+        user: null,
+        loading: true,
+        error: "",
+        academicLevel: null,
+        summary: {},
+        riskDistribution: [],
+        progression: [],
+        attentionStudents: [],
+        recentAlerts: [],
+      };
+    },
+    watch: {
+      academicLevel() {
+        this.load();
+      },
+    },
+    methods: {
+      async load() {
+        this.loading = true;
+        this.error = "";
+        const params = this.academicLevel ? { academic_level: this.academicLevel } : {};
+        try {
+          const [summaryRes, distRes, progRes, alertsRes] = await Promise.all([
+            Api.dashboard.getSummary(params),
+            Api.dashboard.getRiskDistribution(params),
+            Api.dashboard.getProgressionTrends(params),
+            Api.notifications.listNotifications(),
+          ]);
+          this.summary = summaryRes.data;
+          this.riskDistribution = distRes.data.filter((d) => d.count > 0 && d.risk_level !== "unassessed");
+          this.progression = progRes.data;
+          this.recentAlerts = alertsRes.data.slice(0, 6);
+
+          if (!Auth.isStudent(this.user)) {
+            const studentsRes = await Api.students.listStudents({
+              page: 1,
+              page_size: 5,
+              sort_by: "risk_score",
+              sort_dir: "desc",
+              ...params,
+            });
+            this.attentionStudents = studentsRes.data.items.filter(
+              (s) => s.latest_risk_level && s.latest_risk_level !== "low",
+            );
+          }
+        } catch (e) {
+          this.error = Api.apiErrorMessage(e);
+        } finally {
+          this.loading = false;
+        }
+      },
+      goToProfile(id) {
+        location.href = `StudentProfile.html?id=${id}`;
+      },
+    },
+    async mounted() {
+      this.user = await Auth.requireUser(["admin", "faculty", "ta", "student"]);
+      if (!this.user) return;
+      await this.load();
+    },
+  }).mount("#app");
+</script>
+</body>
+</html>

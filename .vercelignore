@@ -1,0 +1,15 @@
+# Local virtualenvs / caches - never upload these
+env/
+.venv/
+venv/
+**/__pycache__/
+**/.pytest_cache/
+**/node_modules/
+
+# Rebuilt on Vercel
+frontend/dist/
+
+# Local-only files
+.env
+backend/*.db
+image.png

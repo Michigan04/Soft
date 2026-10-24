@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Preview: Pagination</title>
+<link rel="stylesheet" href="../shared/main.css" />
+<script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+<script src="../shared/components.js"></script>
+</head>
+<body style="padding: 24px">
+<div id="app" v-cloak>
+  <h2 style="margin-bottom: 16px">Pagination</h2>
+  <div class="card" style="max-width: 500px">
+    <pagination :page="page" :pages="8" :total="153" @update:page="page = $event"></pagination>
+  </div>
+</div>
+<script>
+  const { createApp } = Vue;
+  createApp({
+    components: { Pagination: Components.Pagination },
+    data() {
+      return { page: 3 };
+    },
+  }).mount("#app");
+</script>
+</body>
+</html>

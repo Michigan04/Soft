@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Projects &amp; CGPA - IITM Risk Platform</title>
+<link rel="stylesheet" href="../shared/main.css" />
+<link rel="stylesheet" href="../shared/layout.css" />
+<script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/auth.js"></script>
+<script src="../shared/nav.js"></script>
+<script src="../shared/components.js"></script>
+<style>
+  .dropdown-list { border: 1px solid var(--color-border); border-radius: var(--radius-sm); margin-top: 4px; max-height: 160px; overflow-y: auto; }
+  .dropdown-item { padding: 8px 10px; cursor: pointer; font-size: 13px; }
+  .dropdown-item:hover { background: #faf5f6; }
+</style>
+</head>
+<body>
+<div id="app" v-cloak>
+  <app-shell v-if="user" :user="user">
+    <div class="page">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Project &amp; CGPA Tracker</div>
+          <div class="page-subtitle">Track project milestones, current CGPA, and target-CGPA projections.</div>
+        </div>
+      </div>
+
+      <div v-if="!isStudent" class="card card-pad" style="margin-bottom: 16px">
+        <div class="field" style="margin-bottom: 0">
+          <label>Student</label>
+          <input v-model="studentSearch" class="input" placeholder="Search by name or ID..." @input="searchStudents" />
+          <div v-if="studentOptions.length" class="dropdown-list">
+            <div v-for="s in studentOptions" :key="s.id" class="dropdown-item" @click="selectStudent(s)">
+              {{ s.full_name }} ({{ s.student_identifier }})
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <loading-state v-if="loading" :rows="5"></loading-state>
+      <error-state v-else-if="error" :message="error" @retry="load"></error-state>
+      <empty-state v-else-if="!studentId" title="Select a student" message="Search for a student above to view their CGPA and projects."></empty-state>
+
+      <template v-else>
+        <div class="grid grid-3" style="margin-bottom: 16px">
+          <metric-card label="Current CGPA" :value="cgpaSummary.current_cgpa ?? '—'"></metric-card>
+          <metric-card label="Completed Credits" :value="cgpaSummary.completed_credits ?? 0"></metric-card>
+          <metric-card label="Attempted Credits" :value="cgpaSummary.total_attempted_credits ?? 0"></metric-card>
+        </div>
+
+        <div class="grid grid-2" style="align-items: start; margin-bottom: 16px">
+          <div class="card card-pad">
+            <h3 style="margin-bottom: 10px">Target CGPA Scenarios</h3>
+            <div v-if="cgpaSummary.target_scenarios?.length" class="table-wrap">
+              <table class="data-table">
+                <thead><tr><th>Target</th><th>Remaining Credits</th><th>Required Avg GP</th><th>Feasible</th></tr></thead>
+                <tbody>
+                  <tr v-for="(s, idx) in cgpaSummary.target_scenarios" :key="idx">
+                    <td>{{ s.target_cgpa }}</td>
+                    <td>{{ s.remaining_credits }}</td>
+                    <td>{{ s.required_avg_grade_points ?? "—" }}</td>
+                    <td :style="{ color: s.feasible ? 'var(--risk-low)' : 'var(--risk-critical)' }">
+                      {{ s.feasible ? "Yes" : "No" }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <empty-state v-else title="No scenarios" message="No remaining credits to project."></empty-state>
+            <div style="margin-top: 14px">
+              <p class="text-muted text-sm" style="font-weight: 600; margin-bottom: 4px">Assumptions used:</p>
+              <ul class="text-muted text-sm" style="margin: 0; padding-left: 18px">
+                <li v-for="(a, idx) in cgpaSummary.assumptions" :key="idx">{{ a }}</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="card card-pad">
+            <h3 style="margin-bottom: 10px">Pending Requirements</h3>
+            <ul v-if="cgpaSummary.pending_requirements?.length" class="text-sm" style="margin: 0; padding-left: 18px">
+              <li v-for="(r, idx) in cgpaSummary.pending_requirements" :key="idx">{{ r }}</li>
+            </ul>
+            <empty-state v-else title="All milestones complete" message="No pending requirements for this level."></empty-state>
+          </div>
+        </div>
+
+        <div class="card card-pad">
+          <div class="flex items-center justify-between" style="margin-bottom: 10px">
+            <h3>Projects</h3>
+            <button v-if="canManage" class="btn btn-secondary btn-sm" @click="showProjectForm = true">New Project</button>
+          </div>
+          <div v-if="projects.length" class="table-wrap">
+            <table class="data-table">
+              <thead><tr><th>Title</th><th>Status</th><th>Due</th><th>Grade</th></tr></thead>
+              <tbody>
+                <tr v-for="p in projects" :key="p.id">
+                  <td>{{ p.title }}</td>
+                  <td style="text-transform: capitalize">{{ p.status.replace("_", " ") }}</td>
+                  <td>{{ p.due_date || "—" }}</td>
+                  <td>{{ p.grade || "—" }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <empty-state v-else title="No projects" message="No projects recorded for this student."></empty-state>
+        </div>
+      </template>
+
+      <div v-if="showProjectForm" class="modal-overlay" @click.self="showProjectForm = false">
+        <div class="modal-box">
+          <h3 style="margin-bottom: 14px">New Project</h3>
+          <form @submit.prevent="createNewProject">
+            <div class="field">
+              <label>Title</label>
+              <input v-model="newProject.title" class="input" required />
+            </div>
+            <div class="field">
+              <label>Due date</label>
+              <input v-model="newProject.due_date" type="date" class="input" />
+            </div>
+            <div class="flex gap-8" style="justify-content: flex-end">
+              <button type="button" class="btn btn-secondary" @click="showProjectForm = false">Cancel</button>
+              <button type="submit" class="btn btn-primary">Create</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </app-shell>
+</div>
+<script>
+  const { createApp } = Vue;
+  createApp({
+    components: {
+      AppShell: Components.AppShell,
+      MetricCard: Components.MetricCard,
+      LoadingState: Components.LoadingState,
+      ErrorState: Components.ErrorState,
+      EmptyState: Components.EmptyState,
+    },
+    data() {
+      return {
+        user: null,
+        isStudent: false,
+        canManage: false,
+        studentId: null,
+        studentSearch: "",
+        studentOptions: [],
+        loading: false,
+        error: "",
+        cgpaSummary: {},
+        projects: [],
+        showProjectForm: false,
+        newProject: { title: "", due_date: "" },
+        searchTimer: null,
+      };
+    },
+    methods: {
+      searchStudents() {
+        clearTimeout(this.searchTimer);
+        if (!this.studentSearch) {
+          this.studentOptions = [];
+          return;
+        }
+        this.searchTimer = setTimeout(async () => {
+          const { data } = await Api.students.listStudents({ search: this.studentSearch, page_size: 8 });
+          this.studentOptions = data.items;
+        }, 300);
+      },
+      selectStudent(s) {
+        this.studentId = s.id;
+        this.studentOptions = [];
+        this.studentSearch = `${s.full_name} (${s.student_identifier})`;
+        this.load();
+      },
+      async load() {
+        if (!this.studentId) return;
+        this.loading = true;
+        this.error = "";
+        try {
+          const [cgpaRes, projectsRes] = await Promise.all([
+            Api.students.getCgpaSummary(this.studentId),
+            Api.students.getStudentProjects(this.studentId),
+          ]);
+          this.cgpaSummary = cgpaRes.data;
+          this.projects = projectsRes.data;
+        } catch (e) {
+          this.error = Api.apiErrorMessage(e);
+        } finally {
+          this.loading = false;
+        }
+      },
+      async createNewProject() {
+        await Api.projects.createProject({
+          student_id: this.studentId,
+          title: this.newProject.title,
+          due_date: this.newProject.due_date || null,
+        });
+        this.showProjectForm = false;
+        this.newProject.title = "";
+        this.newProject.due_date = "";
+        this.load();
+      },
+    },
+    async mounted() {
+      this.user = await Auth.requireUser(["admin", "faculty", "ta", "student"]);
+      if (!this.user) return;
+      this.isStudent = Auth.isStudent(this.user);
+      this.canManage = Auth.isAdmin(this.user) || Auth.isStaff(this.user);
+      this.studentId = this.isStudent ? this.user?.student_id : null;
+      await this.load();
+    },
+  }).mount("#app");
+</script>
+</body>
+</html>

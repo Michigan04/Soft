@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Preview: ErrorState</title>
+<link rel="stylesheet" href="../shared/main.css" />
+<script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+<script src="../shared/components.js"></script>
+</head>
+<body style="padding: 24px">
+<div id="app" v-cloak>
+  <h2 style="margin-bottom: 16px">ErrorState</h2>
+  <div class="card" style="max-width: 500px">
+    <error-state message="Could not reach the server. Check your connection." @retry="retryCount++"></error-state>
+  </div>
+  <p class="text-sm text-muted" style="margin-top: 10px">Retry clicked: {{ retryCount }} time(s)</p>
+</div>
+<script>
+  const { createApp } = Vue;
+  createApp({
+    components: { ErrorState: Components.ErrorState },
+    data() {
+      return { retryCount: 0 };
+    },
+  }).mount("#app");
+</script>
+</body>
+</html>

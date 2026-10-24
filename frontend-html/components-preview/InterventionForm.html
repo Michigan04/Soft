@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Preview: InterventionForm</title>
+<link rel="stylesheet" href="../shared/main.css" />
+<script src="https://cdn.jsdelivr.net/npm/vue@3.5.13/dist/vue.global.prod.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios@1.7.9/dist/axios.min.js"></script>
+<script src="../shared/api.js"></script>
+<script src="../shared/auth.js"></script>
+<script src="../shared/components.js"></script>
+</head>
+<body style="padding: 24px">
+<div id="app" v-cloak>
+  <h2 style="margin-bottom: 16px">InterventionForm</h2>
+  <p class="text-sm text-muted" style="margin-bottom: 16px; max-width: 480px">
+    This form makes a real <code>POST /interventions</code> call, so you need to be
+    signed in first (<a href="../pages/Login.html" target="_blank">open Login.html</a>,
+    sign in, then reload this page) and need a real student id below.
+  </p>
+
+  <div class="field" style="max-width: 420px">
+    <label>Student id</label>
+    <input v-model="studentId" class="input" placeholder="paste a student UUID, or auto-fill below" />
+  </div>
+  <button class="btn btn-secondary btn-sm" style="margin-bottom: 20px" @click="autoFill">
+    Auto-fill from first student in the list
+  </button>
+  <p v-if="autoFillError" class="field-error" style="margin-bottom: 16px">{{ autoFillError }}</p>
+
+  <div class="card card-pad" style="max-width: 480px">
+    <intervention-form
+      v-if="studentId"
+      :student-id="studentId"
+      @created="lastEvent = 'created: ' + JSON.stringify($event)"
+      @cancel="lastEvent = 'cancelled'"
+    ></intervention-form>
+    <empty-state v-else title="No student selected" message="Enter or auto-fill a student id above."></empty-state>
+  </div>
+  <p class="text-sm text-muted" style="margin-top: 10px; max-width: 480px; word-break: break-all">{{ lastEvent }}</p>
+</div>
+<script>
+  const { createApp } = Vue;
+  createApp({
+    components: { InterventionForm: Components.InterventionForm, EmptyState: Components.EmptyState },
+    data() {
+      return { studentId: "", autoFillError: "", lastEvent: "(no events yet)" };
+    },
+    methods: {
+      async autoFill() {
+        this.autoFillError = "";
+        try {
+          const { data } = await Api.students.listStudents({ page: 1, page_size: 1 });
+          if (data.items[0]) {
+            this.studentId = data.items[0].id;
+          } else {
+            this.autoFillError = "No students returned by the API.";
+          }
+        } catch (e) {
+          this.autoFillError = Api.apiErrorMessage(e, "Could not load a student - are you signed in?");
+        }
+      },
+    },
+  }).mount("#app");
+</script>
+</body>
+</html>
